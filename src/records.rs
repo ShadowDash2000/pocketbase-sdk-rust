@@ -16,6 +16,8 @@ pub struct RecordsListRequestBuilder<'a> {
     pub collection_name: &'a str,
     pub filter: Option<String>,
     pub sort: Option<String>,
+    pub expand: Option<String>,
+    pub fields: Option<String>,
     pub page: i32,
     pub per_page: i32,
 }
@@ -42,6 +44,12 @@ impl<'a> RecordsListRequestBuilder<'a> {
         }
         if let Some(sort_opts) = &self.sort {
             build_opts.push(("sort", sort_opts))
+        }
+        if let Some(expand_opts) = &self.expand {
+            build_opts.push(("expand", expand_opts))
+        }
+        if let Some(fields_opts) = &self.fields {
+            build_opts.push(("fields", fields_opts))
         }
         let per_page_opts = self.per_page.to_string();
         let page_opts = self.page.to_string();
@@ -71,6 +79,20 @@ impl<'a> RecordsListRequestBuilder<'a> {
         }
     }
 
+    pub fn expand(&self, expand_opts: &str) -> Self {
+        Self {
+            expand: Some(expand_opts.to_string()),
+            ..self.clone()
+        }
+    }
+
+    pub fn fields(&self, fields_opts: &str) -> Self {
+        Self {
+            fields: Some(fields_opts.to_string()),
+            ..self.clone()
+        }
+    }
+
     pub fn page(&self, page: i32) -> Self {
         Self {
             page,
@@ -86,10 +108,13 @@ impl<'a> RecordsListRequestBuilder<'a> {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct RecordViewRequestBuilder<'a> {
     pub client: &'a Client<Auth>,
     pub collection_name: &'a str,
     pub identifier: &'a str,
+    pub expand: Option<String>,
+    pub fields: Option<String>,
 }
 
 impl<'a> RecordViewRequestBuilder<'a> {
@@ -98,7 +123,16 @@ impl<'a> RecordViewRequestBuilder<'a> {
             "{}/api/collections/{}/records/{}",
             self.client.base_url, self.collection_name, self.identifier
         );
-        match Httpc::get(self.client, &url, None) {
+
+        let mut build_opts: Vec<(&str, &str)> = vec![];
+        if let Some(expand_opts) = &self.expand {
+            build_opts.push(("expand", expand_opts))
+        }
+        if let Some(fields_opts) = &self.fields {
+            build_opts.push(("fields", fields_opts))
+        }
+
+        match Httpc::get(self.client, &url, Some(build_opts)) {
             Ok(result) => {
                 let response = result.into_json::<T>()?;
                 Ok(response)
@@ -106,6 +140,27 @@ impl<'a> RecordViewRequestBuilder<'a> {
             Err(e) => Err(anyhow!("error: {}", e)),
         }
     }
+
+    pub fn expand(&self, expand_opts: &str) -> Self {
+        Self {
+            expand: Some(expand_opts.to_string()),
+            ..self.clone()
+        }
+    }
+
+    pub fn fields(&self, fields_opts: &str) -> Self {
+        Self {
+            fields: Some(fields_opts.to_string()),
+            ..self.clone()
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct RecordDestroyRequestBuilder<'a> {
+    pub identifier: &'a str,
+    pub client: &'a Client<Auth>,
+    pub collection_name: &'a str,
 }
 
 impl<'a> RecordDestroyRequestBuilder<'a> {
@@ -125,13 +180,6 @@ impl<'a> RecordDestroyRequestBuilder<'a> {
             Err(e) => Err(anyhow!("error: {}", e)),
         }
     }
-}
-
-#[derive(Clone, Debug)]
-pub struct RecordDestroyRequestBuilder<'a> {
-    pub identifier: &'a str,
-    pub client: &'a Client<Auth>,
-    pub collection_name: &'a str,
 }
 
 #[derive(Debug, Clone)]
@@ -206,6 +254,8 @@ impl<'a> RecordsManager<'a> {
             identifier,
             client: self.client,
             collection_name: self.name,
+            expand: None,
+            fields: None,
         }
     }
 
@@ -244,6 +294,8 @@ impl<'a> RecordsManager<'a> {
             collection_name: self.name,
             filter: None,
             sort: None,
+            expand: None,
+            fields: None,
             page: 1,
             per_page: 100,
         }
