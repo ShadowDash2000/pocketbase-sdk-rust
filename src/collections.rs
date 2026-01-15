@@ -142,14 +142,14 @@ impl<'a> CollectionListRequestBuilder<'a> {
 }
 
 impl<'a> CollectionsManager<'a> {
-    pub fn view(&self, name: &'a str) -> CollectionViewRequestBuilder {
+    pub fn view(&self, name: &'a str) -> CollectionViewRequestBuilder<'_> {
         CollectionViewRequestBuilder {
             client: self.client,
             name,
         }
     }
 
-    pub fn create(&self, name: &'a str) -> CollectionCreateRequestBuilder {
+    pub fn create(&self, name: &'a str) -> CollectionCreateRequestBuilder<'_> {
         CollectionCreateRequestBuilder {
             client: self.client,
             collection_details: None,
@@ -157,7 +157,7 @@ impl<'a> CollectionsManager<'a> {
         }
     }
 
-    pub fn list(&self) -> CollectionListRequestBuilder {
+    pub fn list(&self) -> CollectionListRequestBuilder<'_> {
         CollectionListRequestBuilder {
             client: self.client,
             filter: None,

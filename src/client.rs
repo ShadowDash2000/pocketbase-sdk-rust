@@ -29,7 +29,7 @@ pub struct HealthCheckResponse {
 }
 
 impl Client<Auth> {
-    pub fn collections(&self) -> CollectionsManager {
+    pub fn collections(&self) -> CollectionsManager<'_> {
         CollectionsManager { client: self }
     }
 
@@ -41,11 +41,11 @@ impl Client<Auth> {
         }
     }
 
-    pub fn logs(&self) -> LogsManager {
+    pub fn logs(&self) -> LogsManager<'_> {
         LogsManager { client: self }
     }
 
-    pub fn records(&self, record_name: &'static str) -> RecordsManager {
+    pub fn records(&self, record_name: &'static str) -> RecordsManager<'_> {
         RecordsManager {
             client: self,
             name: record_name,
