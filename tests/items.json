@@ -1,0 +1,26 @@
+[
+  {
+    "id": "1",
+    "collectionId": "a98f514eb05f454",
+    "collectionName": "posts",
+    "updated": "2022-06-25 11:03:50.052",
+    "created": "2022-06-25 11:03:35.163",
+    "title": "post1"
+  },
+  {
+    "id": "2",
+    "collectionId": "a98f514eb05f454",
+    "collectionName": "posts",
+    "updated": "2022-06-25 11:03:45.876",
+    "created": "2022-06-25 11:03:45.876",
+    "title": "post2"
+  },
+  {
+    "id": "3",
+    "collectionId": "a98f514eb05f454",
+    "collectionName": "posts",
+    "updated": "2022-06-25 11:03:40.123",
+    "created": "2022-06-25 11:03:40.123",
+    "title": "post3"
+  }
+]

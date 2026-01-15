@@ -106,6 +106,26 @@ impl<'a> RecordsListRequestBuilder<'a> {
             ..self.clone()
         }
     }
+
+    pub fn full_list<T: Default + DeserializeOwned>(&self) -> Result<Vec<T>> {
+        let mut result: Vec<T> = vec![];
+        let mut page = 1;
+        let per_page = self.per_page;
+
+        loop {
+            let list = self.page(page).call::<T>()?;
+            let items_len = list.items.len();
+            let total_items = list.total_items as usize;
+            result.extend(list.items);
+
+            if items_len < per_page as usize || result.len() >= total_items {
+                break;
+            }
+            page += 1;
+        }
+
+        Ok(result)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -299,5 +319,9 @@ impl<'a> RecordsManager<'a> {
             page: 1,
             per_page: 100,
         }
+    }
+
+    pub fn full_list<T: Default + DeserializeOwned>(&self) -> Result<Vec<T>> {
+        self.list().full_list::<T>()
     }
 }
