@@ -1,8 +1,8 @@
 use crate::client::{Auth, Client};
-use crate::httpc::Httpc;
+use crate::httpc::{Httpc, MAX_BODY_SIZE};
 use anyhow::Result;
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -104,11 +104,15 @@ impl<'a> CollectionListRequestBuilder<'a> {
         build_opts.push(("page", page_opts.as_str()));
 
         match Httpc::get(self.client, &url, Some(build_opts)) {
-            Ok(result) => {
-                let response = result.into_json::<CollectionList>()?;
+            Ok(mut result) => {
+                let response = result
+                    .body_mut()
+                    .with_config()
+                    .limit(MAX_BODY_SIZE)
+                    .read_json::<CollectionList>()?;
                 Ok(response)
             }
-            Err(e) => Err(e),
+            Err(e) => Err(e.into()),
         }
     }
 
@@ -172,11 +176,15 @@ impl<'a> CollectionViewRequestBuilder<'a> {
     pub fn call(&self) -> Result<Collection> {
         let url = format!("{}/api/collections/{}", self.client.base_url(), self.name);
         match Httpc::get(self.client, &url, None) {
-            Ok(result) => {
-                let response = result.into_json::<Collection>()?;
+            Ok(mut result) => {
+                let response = result
+                    .body_mut()
+                    .with_config()
+                    .limit(MAX_BODY_SIZE)
+                    .read_json::<Collection>()?;
                 Ok(response)
             }
-            Err(e) => Err(e),
+            Err(e) => Err(e.into()),
         }
     }
 }

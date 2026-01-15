@@ -63,7 +63,7 @@ fn main() -> Result<()> {
     let update_response = authenticated_client
         .records("products")
         .update(create_response.id.as_str(), updated_product)
-        .call()?;
+        .call::<Product>()?;
 
     dbg!(update_response);
 

@@ -1,5 +1,5 @@
 use crate::client::{Auth, Client};
-use crate::httpc::Httpc;
+use crate::httpc::{Httpc, MAX_BODY_SIZE};
 use anyhow::{anyhow, Result};
 use serde::Serialize;
 use serde::{de::DeserializeOwned, Deserialize};
@@ -35,7 +35,8 @@ impl<'a> RecordsListRequestBuilder<'a> {
     pub fn call<T: Default + DeserializeOwned>(&self) -> Result<RecordList<T>> {
         let url = format!(
             "{}/api/collections/{}/records",
-            self.client.base_url(), self.collection_name
+            self.client.base_url(),
+            self.collection_name
         );
 
         let mut build_opts: Vec<(&str, &str)> = vec![];
@@ -57,11 +58,15 @@ impl<'a> RecordsListRequestBuilder<'a> {
         build_opts.push(("page", page_opts.as_str()));
 
         match Httpc::get(self.client, &url, Some(build_opts)) {
-            Ok(result) => {
-                let response = result.into_json::<RecordList<T>>()?;
+            Ok(mut result) => {
+                let response = result
+                    .body_mut()
+                    .with_config()
+                    .limit(MAX_BODY_SIZE)
+                    .read_json::<RecordList<T>>()?;
                 Ok(response)
             }
-            Err(e) => Err(e),
+            Err(e) => Err(e.into()),
         }
     }
 
@@ -141,7 +146,9 @@ impl<'a> RecordViewRequestBuilder<'a> {
     pub fn call<T: Default + DeserializeOwned>(&self) -> Result<T> {
         let url = format!(
             "{}/api/collections/{}/records/{}",
-            self.client.base_url(), self.collection_name, self.identifier
+            self.client.base_url(),
+            self.collection_name,
+            self.identifier
         );
 
         let mut build_opts: Vec<(&str, &str)> = vec![];
@@ -153,8 +160,12 @@ impl<'a> RecordViewRequestBuilder<'a> {
         }
 
         match Httpc::get(self.client, &url, Some(build_opts)) {
-            Ok(result) => {
-                let response = result.into_json::<T>()?;
+            Ok(mut result) => {
+                let response = result
+                    .body_mut()
+                    .with_config()
+                    .limit(MAX_BODY_SIZE)
+                    .read_json::<T>()?;
                 Ok(response)
             }
             Err(e) => Err(anyhow!("error: {}", e)),
@@ -187,7 +198,9 @@ impl<'a> RecordDestroyRequestBuilder<'a> {
     pub fn call(&self) -> Result<()> {
         let url = format!(
             "{}/api/collections/{}/records/{}",
-            self.client.base_url(), self.collection_name, self.identifier
+            self.client.base_url(),
+            self.collection_name,
+            self.identifier
         );
         match Httpc::delete(self.client, url.as_str()) {
             Ok(result) => {
@@ -218,9 +231,9 @@ pub struct RecordCreateRequestBuilder<'a, T: Serialize + Clone> {
 
 #[derive(Deserialize, Clone, Debug)]
 pub struct CreateResponse {
-    #[serde(rename = "@collectionName")]
+    #[serde(rename = "collectionName")]
     pub collection_name: Option<String>,
-    #[serde(rename = "@collectionId")]
+    #[serde(rename = "collectionId")]
     pub collection_id: Option<String>,
     pub id: String,
     pub updated: String,
@@ -231,12 +244,17 @@ impl<'a, T: Serialize + Clone> RecordCreateRequestBuilder<'a, T> {
     pub fn call(&self) -> Result<CreateResponse> {
         let url = format!(
             "{}/api/collections/{}/records",
-            self.client.base_url(), self.collection_name
+            self.client.base_url(),
+            self.collection_name
         );
         let payload = serde_json::to_string(&self.record).map_err(anyhow::Error::from)?;
         match Httpc::post(self.client, &url, payload) {
-            Ok(result) => {
-                let response = result.into_json::<CreateResponse>()?;
+            Ok(mut result) => {
+                let response = result
+                    .body_mut()
+                    .with_config()
+                    .limit(MAX_BODY_SIZE)
+                    .read_json::<CreateResponse>()?;
                 Ok(response)
             }
             Err(e) => Err(anyhow!("error: {}", e)),
@@ -244,25 +262,45 @@ impl<'a, T: Serialize + Clone> RecordCreateRequestBuilder<'a, T> {
     }
 }
 
-pub struct RecordUpdateRequestBuilder<'a, T: Serialize + Clone> {
-    pub record: T,
+pub struct RecordUpdateRequestBuilder<'a, K: Serialize + Clone> {
+    pub data: K,
     pub collection_name: &'a str,
     pub client: &'a Client<Auth>,
     pub id: &'a str,
 }
 
-impl<'a, T: Serialize + Clone> RecordUpdateRequestBuilder<'a, T> {
-    pub fn call(&self) -> Result<T> {
+impl<'a, K: Serialize + Clone> RecordUpdateRequestBuilder<'a, K> {
+    pub fn call<T: Default + DeserializeOwned>(&self) -> Result<T> {
         let url = format!(
             "{}/api/collections/{}/records/{}",
-            self.client.base_url(), self.collection_name, self.id
+            self.client.base_url(),
+            self.collection_name,
+            self.id
         );
-        let payload = serde_json::to_string(&self.record).map_err(anyhow::Error::from)?;
+        let payload = serde_json::to_string(&self.data).map_err(anyhow::Error::from)?;
         match Httpc::patch(self.client, &url, payload) {
-            Ok(result) => {
-                result.into_json::<CreateResponse>()?;
-                Ok(self.record.clone())
+            Ok(mut result) => {
+                let response = result
+                    .body_mut()
+                    .with_config()
+                    .limit(MAX_BODY_SIZE)
+                    .read_json::<T>()?;
+                Ok(response)
             }
+            Err(e) => Err(anyhow!("error: {}", e)),
+        }
+    }
+
+    pub fn send(&self) -> Result<()> {
+        let url = format!(
+            "{}/api/collections/{}/records/{}",
+            self.client.base_url(),
+            self.collection_name,
+            self.id
+        );
+        let payload = serde_json::to_string(&self.data).map_err(anyhow::Error::from)?;
+        match Httpc::patch(self.client, &url, payload) {
+            Ok(_) => Ok(()),
             Err(e) => Err(anyhow!("error: {}", e)),
         }
     }
@@ -287,16 +325,16 @@ impl<'a> RecordsManager<'a> {
         }
     }
 
-    pub fn update<T: Serialize + Clone>(
+    pub fn update<K: Serialize + Clone>(
         &self,
         identifier: &'a str,
-        record: T,
-    ) -> RecordUpdateRequestBuilder<'a, T> {
+        data: K,
+    ) -> RecordUpdateRequestBuilder<'a, K> {
         RecordUpdateRequestBuilder {
             client: self.client,
             collection_name: self.collection_name,
             id: identifier,
-            record,
+            data,
         }
     }
 

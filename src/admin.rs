@@ -1,6 +1,6 @@
-use crate::client::Client;
 use crate::client::Auth;
-use crate::httpc::Httpc;
+use crate::client::Client;
+use crate::httpc::{Httpc, MAX_BODY_SIZE};
 use anyhow::{anyhow, Result};
 use serde::Deserialize;
 use serde_json::json;
@@ -23,8 +23,12 @@ impl<'a> Admin<'a> {
         });
         let client = Client::new(self.base_url);
         match Httpc::post(&client, &url, credentials.to_string()) {
-            Ok(response) => {
-                let raw_response = response.into_json::<AuthSuccessResponse>();
+            Ok(mut response) => {
+                let raw_response = response
+                    .body_mut()
+                    .with_config()
+                    .limit(MAX_BODY_SIZE)
+                    .read_json::<AuthSuccessResponse>();
                 match raw_response {
                     Ok(AuthSuccessResponse { token }) => {
                         Ok(Client::new_auth(self.base_url, &token))

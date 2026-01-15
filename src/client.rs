@@ -1,3 +1,4 @@
+use crate::httpc::MAX_BODY_SIZE;
 use crate::{collections::CollectionsManager, httpc::Httpc};
 use crate::{logs::LogsManager, records::RecordsManager};
 use anyhow::{anyhow, Result};
@@ -54,8 +55,12 @@ impl Client<Auth> {
     pub fn health_check(&self) -> Result<HealthCheckResponse> {
         let url = format!("{}/api/health", self.base_url);
         match Httpc::get(self, &url, None) {
-            Ok(response) => Ok(response.into_json::<HealthCheckResponse>()?),
-            Err(e) => Err(anyhow!("{}", e))
+            Ok(mut response) => Ok(response
+                .body_mut()
+                .with_config()
+                .limit(MAX_BODY_SIZE)
+                .read_json::<HealthCheckResponse>()?),
+            Err(e) => Err(anyhow!("{}", e)),
         }
     }
 
@@ -83,12 +88,21 @@ impl Client<NoAuth> {
     pub fn health_check(&self) -> Result<HealthCheckResponse> {
         let url = format!("{}/api/health", self.base_url);
         match Httpc::get(self, &url, None) {
-            Ok(response) => Ok(response.into_json::<HealthCheckResponse>()?),
-            Err(e) => Err(anyhow!("{}", e))
+            Ok(mut response) => Ok(response
+                .body_mut()
+                .with_config()
+                .limit(MAX_BODY_SIZE)
+                .read_json::<HealthCheckResponse>()?),
+            Err(e) => Err(anyhow!("{}", e)),
         }
     }
 
-    pub fn auth_with_password(&self, collection: &str, identifier: &str, secret: &str) -> Result<Client<Auth>> {
+    pub fn auth_with_password(
+        &self,
+        collection: &str,
+        identifier: &str,
+        secret: &str,
+    ) -> Result<Client<Auth>> {
         let url = format!(
             "{}/api/collections/{}/auth-with-password",
             self.base_url, collection
@@ -100,8 +114,12 @@ impl Client<NoAuth> {
         });
 
         match Httpc::post(self, &url, auth_payload.to_string()) {
-            Ok(response) => {
-                let raw_response = response.into_json::<AuthSuccessResponse>();
+            Ok(mut response) => {
+                let raw_response = response
+                    .body_mut()
+                    .with_config()
+                    .limit(MAX_BODY_SIZE)
+                    .read_json::<AuthSuccessResponse>();
                 match raw_response {
                     Ok(AuthSuccessResponse { token }) => Ok(Client {
                         base_url: self.base_url.clone(),
