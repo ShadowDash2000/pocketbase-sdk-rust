@@ -1,12 +1,12 @@
-use crate::client::Auth;
 use crate::client::Client;
+use crate::client::Auth;
 use crate::httpc::Httpc;
 use anyhow::{anyhow, Result};
 use serde::Deserialize;
 use serde_json::json;
 
 pub struct Admin<'a> {
-    pub base_url: &'a str,
+    base_url: &'a str,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -26,11 +26,9 @@ impl<'a> Admin<'a> {
             Ok(response) => {
                 let raw_response = response.into_json::<AuthSuccessResponse>();
                 match raw_response {
-                    Ok(AuthSuccessResponse { token }) => Ok(Client {
-                        base_url: self.base_url.to_string(),
-                        state: Auth,
-                        auth_token: Some(token),
-                    }),
+                    Ok(AuthSuccessResponse { token }) => {
+                        Ok(Client::new_auth(self.base_url, &token))
+                    }
                     Err(e) => Err(anyhow!("{}", e)),
                 }
             }

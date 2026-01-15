@@ -69,7 +69,7 @@ impl<'a> LogStatisticsRequestBuilder<'a> {
     }
 
     pub fn call(&self) -> Result<Vec<LogStatDataPoint>> {
-        let url = format!("{}/api/logs/requests/stats", self.client.base_url);
+        let url = format!("{}/api/logs/requests/stats", self.client.base_url());
         let mut build_opts = Vec::new();
         if let Some(filter_opts) = &self.filter {
             build_opts.push(("filter", filter_opts.to_owned()));
@@ -87,7 +87,7 @@ impl<'a> LogStatisticsRequestBuilder<'a> {
 
 impl<'a> LogViewRequestBuilder<'a> {
     pub fn call(&self) -> Result<LogListItem> {
-        let url = format!("{}/api/logs/requests/{}", self.client.base_url, self.id);
+        let url = format!("{}/api/logs/requests/{}", self.client.base_url(), self.id);
         match Httpc::get(self.client, &url, None) {
             Ok(result) => {
                 let response = result.into_json::<LogListItem>()?;
@@ -128,7 +128,7 @@ impl<'a> LogListRequestBuilder<'a> {
     }
 
     pub fn call(&self) -> Result<LogList> {
-        let url = format!("{}/api/logs/requests", self.client.base_url);
+        let url = format!("{}/api/logs/requests", self.client.base_url());
         let mut build_opts = Vec::new();
 
         if let Some(sort_opts) = &self.sort { build_opts.push(("sort", sort_opts.to_owned())) }

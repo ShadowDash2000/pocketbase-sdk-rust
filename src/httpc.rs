@@ -7,7 +7,7 @@ pub struct Httpc;
 
 impl Httpc {
     fn attach_auth_info<T>(partial_request: Request, client: &Client<T>) -> Result<Request> {
-        match client.auth_token.as_ref() {
+        match client.auth_token() {
             Some(token) => Ok(partial_request.set("Authorization", token)),
             None => Ok(partial_request),
         }

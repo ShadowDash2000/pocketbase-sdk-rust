@@ -6,13 +6,13 @@ use serde::{de::DeserializeOwned, Deserialize};
 
 #[derive(Debug, Clone)]
 pub struct RecordsManager<'a> {
-    pub client: &'a Client<Auth>,
-    pub name: &'a str,
+    pub(crate) client: &'a Client<Auth>,
+    pub(crate) collection_name: &'a str,
 }
 
 #[derive(Debug, Clone)]
 pub struct RecordsListRequestBuilder<'a> {
-    pub client: &'a Client<Auth>,
+    pub(crate) client: &'a Client<Auth>,
     pub collection_name: &'a str,
     pub filter: Option<String>,
     pub sort: Option<String>,
@@ -35,7 +35,7 @@ impl<'a> RecordsListRequestBuilder<'a> {
     pub fn call<T: Default + DeserializeOwned>(&self) -> Result<RecordList<T>> {
         let url = format!(
             "{}/api/collections/{}/records",
-            self.client.base_url, self.collection_name
+            self.client.base_url(), self.collection_name
         );
 
         let mut build_opts: Vec<(&str, &str)> = vec![];
@@ -141,7 +141,7 @@ impl<'a> RecordViewRequestBuilder<'a> {
     pub fn call<T: Default + DeserializeOwned>(&self) -> Result<T> {
         let url = format!(
             "{}/api/collections/{}/records/{}",
-            self.client.base_url, self.collection_name, self.identifier
+            self.client.base_url(), self.collection_name, self.identifier
         );
 
         let mut build_opts: Vec<(&str, &str)> = vec![];
@@ -187,7 +187,7 @@ impl<'a> RecordDestroyRequestBuilder<'a> {
     pub fn call(&self) -> Result<()> {
         let url = format!(
             "{}/api/collections/{}/records/{}",
-            self.client.base_url, self.collection_name, self.identifier
+            self.client.base_url(), self.collection_name, self.identifier
         );
         match Httpc::delete(self.client, url.as_str()) {
             Ok(result) => {
@@ -231,7 +231,7 @@ impl<'a, T: Serialize + Clone> RecordCreateRequestBuilder<'a, T> {
     pub fn call(&self) -> Result<CreateResponse> {
         let url = format!(
             "{}/api/collections/{}/records",
-            self.client.base_url, self.collection_name
+            self.client.base_url(), self.collection_name
         );
         let payload = serde_json::to_string(&self.record).map_err(anyhow::Error::from)?;
         match Httpc::post(self.client, &url, payload) {
@@ -255,7 +255,7 @@ impl<'a, T: Serialize + Clone> RecordUpdateRequestBuilder<'a, T> {
     pub fn call(&self) -> Result<T> {
         let url = format!(
             "{}/api/collections/{}/records/{}",
-            self.client.base_url, self.collection_name, self.id
+            self.client.base_url(), self.collection_name, self.id
         );
         let payload = serde_json::to_string(&self.record).map_err(anyhow::Error::from)?;
         match Httpc::patch(self.client, &url, payload) {
@@ -273,7 +273,7 @@ impl<'a> RecordsManager<'a> {
         RecordViewRequestBuilder {
             identifier,
             client: self.client,
-            collection_name: self.name,
+            collection_name: self.collection_name,
             expand: None,
             fields: None,
         }
@@ -283,7 +283,7 @@ impl<'a> RecordsManager<'a> {
         RecordDestroyRequestBuilder {
             identifier,
             client: self.client,
-            collection_name: self.name,
+            collection_name: self.collection_name,
         }
     }
 
@@ -294,7 +294,7 @@ impl<'a> RecordsManager<'a> {
     ) -> RecordUpdateRequestBuilder<'a, T> {
         RecordUpdateRequestBuilder {
             client: self.client,
-            collection_name: self.name,
+            collection_name: self.collection_name,
             id: identifier,
             record,
         }
@@ -304,14 +304,14 @@ impl<'a> RecordsManager<'a> {
         RecordCreateRequestBuilder {
             record,
             client: self.client,
-            collection_name: self.name,
+            collection_name: self.collection_name,
         }
     }
 
     pub fn list(&self) -> RecordsListRequestBuilder<'a> {
         RecordsListRequestBuilder {
             client: self.client,
-            collection_name: self.name,
+            collection_name: self.collection_name,
             filter: None,
             sort: None,
             expand: None,

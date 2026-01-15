@@ -89,7 +89,7 @@ pub struct CollectionListRequestBuilder<'a> {
 
 impl<'a> CollectionListRequestBuilder<'a> {
     pub fn call(&self) -> Result<CollectionList> {
-        let url = format!("{}/api/collections", self.client.base_url);
+        let url = format!("{}/api/collections", self.client.base_url());
         let mut build_opts: Vec<(&str, &str)> = Vec::new();
 
         if let Some(filter_opts) = &self.filter {
@@ -170,7 +170,7 @@ impl<'a> CollectionsManager<'a> {
 
 impl<'a> CollectionViewRequestBuilder<'a> {
     pub fn call(&self) -> Result<Collection> {
-        let url = format!("{}/api/collections/{}", self.client.base_url, self.name);
+        let url = format!("{}/api/collections/{}", self.client.base_url(), self.name);
         match Httpc::get(self.client, &url, None) {
             Ok(result) => {
                 let response = result.into_json::<Collection>()?;

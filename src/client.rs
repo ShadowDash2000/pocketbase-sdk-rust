@@ -17,9 +17,9 @@ pub struct Auth;
 
 #[derive(Debug, Clone)]
 pub struct Client<State = NoAuth> {
-    pub base_url: String,
-    pub auth_token: Option<String>,
-    pub state: State,
+    base_url: String,
+    auth_token: Option<String>,
+    state: State,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -28,7 +28,25 @@ pub struct HealthCheckResponse {
     pub message: String,
 }
 
+impl<State> Client<State> {
+    pub fn base_url(&self) -> &str {
+        &self.base_url
+    }
+
+    pub fn auth_token(&self) -> Option<&str> {
+        self.auth_token.as_deref()
+    }
+}
+
 impl Client<Auth> {
+    pub fn new_auth(base_url: &str, auth_token: &str) -> Self {
+        Self {
+            base_url: base_url.to_string(),
+            auth_token: Some(auth_token.to_string()),
+            state: Auth,
+        }
+    }
+
     pub fn collections(&self) -> CollectionsManager<'_> {
         CollectionsManager { client: self }
     }
@@ -48,7 +66,7 @@ impl Client<Auth> {
     pub fn records(&self, record_name: &'static str) -> RecordsManager<'_> {
         RecordsManager {
             client: self,
-            name: record_name,
+            collection_name: record_name,
         }
     }
 }
