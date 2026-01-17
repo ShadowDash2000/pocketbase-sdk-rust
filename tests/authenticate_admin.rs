@@ -35,14 +35,14 @@ fn mock_admin_login() -> MockServer {
         then.status(400)
             .header("content-type", "application/json")
             .json_body(json!({
-                    "code": 400,
-                    "message": "An error occurred while submitting the form.",
-                    "data": {
+                "code": 400,
+                "message": "An error occurred while submitting the form.",
+                "data": {
                     "password": {
-                    "code": "validation_required",
-                    "message": "Missing required value."
+                        "code": "validation_required",
+                        "message": "Missing required value."
+                    }
                 }
-            }
             }));
     });
 
@@ -59,8 +59,8 @@ fn mock_admin_login() -> MockServer {
             .status(200)
             .header("content-type", "application/json")
             .json_body(json!({
-                    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6InN5d2JoZWNuaDQ2cmhtMCIsInR5cGUiOiJhZG1pbiIsImV4cCI6MjIwODk4MTYwMH0.han3_sG65zLddpcX2ic78qgy7FKecuPfOpFa8Dvi5Bg",
-                    "record": {
+                "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6InN5d2JoZWNuaDQ2cmhtMCIsInR5cGUiOiJhZG1pbiIsImV4cCI6MjIwODk4MTYwMH0.han3_sG65zLddpcX2ic78qgy7FKecuPfOpFa8Dvi5Bg",
+                "record": {
                     "id": "b6e4b08274f34e9",
                     "collectionId": "d2972397d45614e",
                     "collectionName": "_superusers",

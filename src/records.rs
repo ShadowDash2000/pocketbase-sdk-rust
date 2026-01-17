@@ -1,8 +1,20 @@
-use crate::client::{Client};
+use crate::client::Client;
 use crate::httpc::{Httpc, MAX_BODY_SIZE};
 use anyhow::{anyhow, Result};
 use serde::Serialize;
 use serde::{de::DeserializeOwned, Deserialize};
+
+pub type RecordId = String;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RecordBaseFields {
+    #[serde(default)]
+    pub id: RecordId,
+    #[serde(default, rename = "collectionName")]
+    pub collection_name: String,
+    #[serde(default, rename = "collectionId")]
+    pub collection_id: String,
+}
 
 #[derive(Debug, Clone)]
 pub struct RecordsManager<'a> {

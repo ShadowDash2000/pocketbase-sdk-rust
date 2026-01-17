@@ -1,4 +1,5 @@
 use crate::httpc::MAX_BODY_SIZE;
+use crate::records::RecordId;
 use crate::{collections::CollectionsManager, httpc::Httpc};
 use crate::{logs::LogsManager, records::RecordsManager};
 use anyhow::{anyhow, Result};
@@ -7,13 +8,15 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct AuthSuccessResponse<T: Serialize> {
-    pub record: AuthRecord<T>,
+pub struct AuthSuccessResponse {
+    #[serde(rename = "record")]
+    pub record_value: serde_json::Value,
     pub token: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuthBaseFields {
+    pub id: RecordId,
     #[serde(rename = "collectionName")]
     pub collection_name: String,
     #[serde(rename = "collectionId")]
@@ -21,44 +24,51 @@ pub struct AuthBaseFields {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AuthRecord<T: Serialize> {
+pub struct AuthRecord {
     #[serde(flatten)]
     pub base_fields: AuthBaseFields,
     #[serde(flatten)]
-    pub fields: T,
+    pub fields: serde_json::Value,
 }
 
-#[derive(Debug, Clone, Serialize)]
-pub struct AuthStore {
+#[derive(Debug, Clone)]
+pub struct Auth {
     base_url: String,
-    record: AuthRecord<serde_json::Value>,
+    auth_store: AuthStore,
+    record_value: serde_json::Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AuthStore {
+    record: AuthRecord,
     pub(crate) token: String,
 }
 
-impl AuthStore {
-    pub fn record<T: Serialize + DeserializeOwned>(&self) -> Result<AuthRecord<T>> {
-        Ok(AuthRecord {
-            base_fields: self.record.base_fields.clone(),
-            fields: serde_json::from_value(self.record.fields.clone())?,
-        })
+impl Auth {
+    pub fn record<T: Serialize + DeserializeOwned>(&self) -> Result<(AuthBaseFields, T)> {
+        Ok((
+            self.auth_store.record.base_fields.clone(),
+            serde_json::from_value(self.record_value.clone())?,
+        ))
     }
 
     pub fn refresh(&mut self) -> Result<()> {
         let url = format!(
             "{}/api/collections/{}/auth-refresh",
-            self.base_url, self.record.base_fields.collection_name
+            self.base_url, self.auth_store.record.base_fields.collection_name
         );
 
-        match Httpc::post(Some(self), &url, "".to_string()) {
+        match Httpc::post(Some(&self.auth_store), &url, "".to_string()) {
             Ok(mut response) => {
                 let response = response
                     .body_mut()
                     .with_config()
                     .limit(MAX_BODY_SIZE)
-                    .read_json::<AuthSuccessResponse<serde_json::Value>>()?;
+                    .read_json::<AuthSuccessResponse>()?;
 
-                self.record = response.record.clone();
-                self.token = response.token.clone();
+                self.auth_store.record = serde_json::from_value(response.record_value.clone())?;
+                self.record_value = response.record_value.clone();
+                self.auth_store.token = response.token.clone();
 
                 Ok(())
             }
@@ -70,7 +80,7 @@ impl AuthStore {
 #[derive(Debug, Clone)]
 pub struct Client {
     base_url: String,
-    auth: Option<AuthStore>,
+    auth: Option<Auth>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -87,26 +97,33 @@ impl Client {
         }
     }
 
-    pub fn new_with_auth(base_url: &str, auth: AuthStore) -> Self {
-        Self {
+    pub fn new_with_auth(base_url: &str, auth: AuthStore) -> Result<Self> {
+        Ok(Self {
             base_url: base_url.to_string(),
-            auth: Some(AuthStore {
+            auth: Some(Auth {
                 base_url: base_url.to_string(),
-                ..auth
+                record_value: serde_json::to_value(&auth.record)?,
+                auth_store: auth,
             }),
-        }
+        })
     }
 
     pub fn base_url(&self) -> &str {
         &self.base_url
     }
 
-    pub fn auth_store(&self) -> Option<&AuthStore> {
+    pub fn auth(&self) -> Option<&Auth> {
         self.auth.as_ref()
     }
 
+    pub fn auth_store(&self) -> Option<&AuthStore> {
+        self.auth.as_ref().map(|auth| &auth.auth_store)
+    }
+
     pub fn auth_token(&self) -> Option<&str> {
-        self.auth.as_ref().map(|auth| auth.token.as_str())
+        self.auth
+            .as_ref()
+            .map(|auth| auth.auth_store.token.as_str())
     }
 
     pub fn collections(&self) -> CollectionsManager<'_> {
@@ -158,14 +175,19 @@ impl Client {
                     .body_mut()
                     .with_config()
                     .limit(MAX_BODY_SIZE)
-                    .read_json::<AuthSuccessResponse<serde_json::Value>>()?;
+                    .read_json::<AuthSuccessResponse>()?;
 
                 Ok(Self {
                     base_url: self.base_url.clone(),
-                    auth: Some(AuthStore {
+                    auth: Some(Auth {
                         base_url: self.base_url.clone(),
-                        record: response.record.clone(),
-                        token: response.token.clone(),
+                        auth_store: AuthStore {
+                            record: serde_json::from_value::<AuthRecord>(
+                                response.clone().record_value,
+                            )?,
+                            token: response.token.clone(),
+                        },
+                        record_value: response.record_value.clone(),
                     }),
                 })
             }

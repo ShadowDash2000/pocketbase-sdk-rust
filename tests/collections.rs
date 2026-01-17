@@ -45,11 +45,11 @@ fn mockserver() -> MockServer {
                     "required": false,
                     "unique": false,
                     "options": {
-                    "min": null,
-                    "max": null,
-                    "pattern": ""
-                }
-            },
+                        "min": null,
+                        "max": null,
+                        "pattern": ""
+                    }
+                },
                 {
                     "system": false,
                     "id": "9gvv0jkj",
@@ -58,17 +58,17 @@ fn mockserver() -> MockServer {
                     "required": false,
                     "unique": false,
                     "options": {
-                    "maxSelect": 1,
-                    "maxSize": 5242880,
-                    "mimeTypes": [
-                    "image/jpg",
-                    "image/jpeg",
-                    "image/png",
-                    "image/svg+xml",
-                    "image/gif"
-                ],
-                "thumbs": null
-            }
+                        "maxSelect": 1,
+                        "maxSize": 5242880,
+                        "mimeTypes": [
+                            "image/jpg",
+                            "image/jpeg",
+                            "image/png",
+                            "image/svg+xml",
+                            "image/gif"
+                        ],
+                        "thumbs": null
+                    }
             }
             ],
                 "listRule": "id = @request.user.id",
@@ -93,66 +93,66 @@ fn mockserver() -> MockServer {
             "perPage": 100,
             "totalItems": 3,
             "items": [
-            {
-            "id": "d2972397d45614e",
-            "created": "2022-06-22 07:13:00.643Z",
-            "updated": "2022-06-22 07:13:00.643Z",
-            "name": "users",
-            "type": "base",
-            "system": true,
-            "schema": [
                 {
-                    "system": false,
-                    "id": "njnkhxa2",
-                    "name": "title",
-                    "type": "text",
-                    "required": false,
-                    "unique": false,
-                    "options": {
-                        "min": "",
-                        "max": "",
-                        "pattern": ""
-                    }
+                    "id": "d2972397d45614e",
+                    "created": "2022-06-22 07:13:00.643Z",
+                    "updated": "2022-06-22 07:13:00.643Z",
+                    "name": "users",
+                    "type": "base",
+                    "system": true,
+                    "schema": [
+                        {
+                            "system": false,
+                            "id": "njnkhxa2",
+                            "name": "title",
+                            "type": "text",
+                            "required": false,
+                            "unique": false,
+                            "options": {
+                                "min": "",
+                                "max": "",
+                                "pattern": ""
+                            }
+                        },
+                        {
+                            "system": false,
+                            "id": "9gvv0jkj",
+                            "name": "avatar",
+                            "type": "file",
+                            "required": false,
+                            "unique": false,
+                            "options": {
+                                "maxSelect": 1,
+                                "maxSize": 5242880,
+                                "mimeTypes": [
+                                    "image/jpg",
+                                    "image/jpeg",
+                                    "image/png",
+                                    "image/svg+xml",
+                                    "image/gif"
+                                ],
+                                "thumbs": null
+                            }
+                        }
+                    ],
+                    "listRule": "id = @request.user.id",
+                    "viewRule": "id = @request.user.id",
+                    "createRule": "id = @request.user.id",
+                    "updateRule": "id = @request.user.id",
+                    "deleteRule": null,
+                        "options": {
+                            "manageRule": null,
+                            "allowOAuth2Auth": true,
+                            "allowUsernameAuth": true,
+                            "allowEmailAuth": true,
+                            "requireEmail": true,
+                            "exceptEmailDomains": [],
+                            "onlyEmailDomains": [],
+                            "minPasswordLength": 8
+                        },
+                    "indexes": ["create index title_idx on users (title)"]
                 },
-                {
-                    "system": false,
-                    "id": "9gvv0jkj",
-                    "name": "avatar",
-                    "type": "file",
-                    "required": false,
-                    "unique": false,
-                    "options": {
-                        "maxSelect": 1,
-                        "maxSize": 5242880,
-                        "mimeTypes": [
-                            "image/jpg",
-                            "image/jpeg",
-                            "image/png",
-                            "image/svg+xml",
-                            "image/gif"
-                        ],
-                        "thumbs": null
-                    }
-                }
-            ],
-            "listRule": "id = @request.user.id",
-            "viewRule": "id = @request.user.id",
-            "createRule": "id = @request.user.id",
-            "updateRule": "id = @request.user.id",
-            "deleteRule": null,
-                "options": {
-                    "manageRule": null,
-                    "allowOAuth2Auth": true,
-                    "allowUsernameAuth": true,
-                    "allowEmailAuth": true,
-                    "requireEmail": true,
-                    "exceptEmailDomains": [],
-                    "onlyEmailDomains": [],
-                    "minPasswordLength": 8
-                },
-            "indexes": ["create index title_idx on users (title)"]
-        },
-        ]
+            ]
         }
         ));
     });
@@ -169,8 +169,8 @@ fn mockserver() -> MockServer {
             .status(200)
             .header("content-type", "application/json")
             .json_body(json!({
-                    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6InN5d2JoZWNuaDQ2cmhtMCIsInR5cGUiOiJhZG1pbiIsImV4cCI6MjIwODk4MTYwMH0.han3_sG65zLddpcX2ic78qgy7FKecuPfOpFa8Dvi5Bg",
-                    "record": {
+                "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6InN5d2JoZWNuaDQ2cmhtMCIsInR5cGUiOiJhZG1pbiIsImV4cCI6MjIwODk4MTYwMH0.han3_sG65zLddpcX2ic78qgy7FKecuPfOpFa8Dvi5Bg",
+                "record": {
                     "id": "b6e4b08274f34e9",
                     "collectionId": "d2972397d45614e",
                     "collectionName": "_superusers",
