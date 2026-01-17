@@ -1,4 +1,4 @@
-use crate::client::{Auth, Client};
+use crate::client::{Client};
 use crate::httpc::{Httpc, MAX_BODY_SIZE};
 use anyhow::{anyhow, Result};
 use serde::Serialize;
@@ -6,13 +6,13 @@ use serde::{de::DeserializeOwned, Deserialize};
 
 #[derive(Debug, Clone)]
 pub struct RecordsManager<'a> {
-    pub(crate) client: &'a Client<Auth>,
+    pub(crate) client: &'a Client,
     pub(crate) collection_name: &'a str,
 }
 
 #[derive(Debug, Clone)]
 pub struct RecordsListRequestBuilder<'a> {
-    pub(crate) client: &'a Client<Auth>,
+    pub(crate) client: &'a Client,
     pub collection_name: &'a str,
     pub filter: Option<String>,
     pub sort: Option<String>,
@@ -57,7 +57,7 @@ impl<'a> RecordsListRequestBuilder<'a> {
         build_opts.push(("perPage", per_page_opts.as_str()));
         build_opts.push(("page", page_opts.as_str()));
 
-        match Httpc::get(self.client, &url, Some(build_opts)) {
+        match Httpc::get(self.client.auth_store(), &url, Some(build_opts)) {
             Ok(mut result) => {
                 let response = result
                     .body_mut()
@@ -135,7 +135,7 @@ impl<'a> RecordsListRequestBuilder<'a> {
 
 #[derive(Debug, Clone)]
 pub struct RecordViewRequestBuilder<'a> {
-    pub client: &'a Client<Auth>,
+    pub client: &'a Client,
     pub collection_name: &'a str,
     pub identifier: &'a str,
     pub expand: Option<String>,
@@ -159,7 +159,7 @@ impl<'a> RecordViewRequestBuilder<'a> {
             build_opts.push(("fields", fields_opts))
         }
 
-        match Httpc::get(self.client, &url, Some(build_opts)) {
+        match Httpc::get(self.client.auth_store(), &url, Some(build_opts)) {
             Ok(mut result) => {
                 let response = result
                     .body_mut()
@@ -190,7 +190,7 @@ impl<'a> RecordViewRequestBuilder<'a> {
 #[derive(Clone, Debug)]
 pub struct RecordDestroyRequestBuilder<'a> {
     pub identifier: &'a str,
-    pub client: &'a Client<Auth>,
+    pub client: &'a Client,
     pub collection_name: &'a str,
 }
 
@@ -202,7 +202,7 @@ impl<'a> RecordDestroyRequestBuilder<'a> {
             self.collection_name,
             self.identifier
         );
-        match Httpc::delete(self.client, url.as_str()) {
+        match Httpc::delete(self.client.auth_store(), url.as_str()) {
             Ok(result) => {
                 if result.status() == 204 {
                     Ok(())
@@ -217,14 +217,14 @@ impl<'a> RecordDestroyRequestBuilder<'a> {
 
 #[derive(Debug, Clone)]
 pub struct RecordDeleteAllRequestBuilder<'a> {
-    pub client: &'a Client<Auth>,
+    pub client: &'a Client,
     pub collection_name: &'a str,
     pub filter: Option<&'a str>,
 }
 
 #[derive(Debug, Clone)]
 pub struct RecordCreateRequestBuilder<'a, T: Serialize + Clone> {
-    pub client: &'a Client<Auth>,
+    pub client: &'a Client,
     pub collection_name: &'a str,
     pub record: T,
 }
@@ -248,7 +248,7 @@ impl<'a, T: Serialize + Clone> RecordCreateRequestBuilder<'a, T> {
             self.collection_name
         );
         let payload = serde_json::to_string(&self.record).map_err(anyhow::Error::from)?;
-        match Httpc::post(self.client, &url, payload) {
+        match Httpc::post(self.client.auth_store(), &url, payload) {
             Ok(mut result) => {
                 let response = result
                     .body_mut()
@@ -265,7 +265,7 @@ impl<'a, T: Serialize + Clone> RecordCreateRequestBuilder<'a, T> {
 pub struct RecordUpdateRequestBuilder<'a, K: Serialize + Clone> {
     pub data: K,
     pub collection_name: &'a str,
-    pub client: &'a Client<Auth>,
+    pub client: &'a Client,
     pub id: &'a str,
 }
 
@@ -278,7 +278,7 @@ impl<'a, K: Serialize + Clone> RecordUpdateRequestBuilder<'a, K> {
             self.id
         );
         let payload = serde_json::to_string(&self.data).map_err(anyhow::Error::from)?;
-        match Httpc::patch(self.client, &url, payload) {
+        match Httpc::patch(self.client.auth_store(), &url, payload) {
             Ok(mut result) => {
                 let response = result
                     .body_mut()
@@ -299,7 +299,7 @@ impl<'a, K: Serialize + Clone> RecordUpdateRequestBuilder<'a, K> {
             self.id
         );
         let payload = serde_json::to_string(&self.data).map_err(anyhow::Error::from)?;
-        match Httpc::patch(self.client, &url, payload) {
+        match Httpc::patch(self.client.auth_store(), &url, payload) {
             Ok(_) => Ok(()),
             Err(e) => Err(anyhow!("error: {}", e)),
         }

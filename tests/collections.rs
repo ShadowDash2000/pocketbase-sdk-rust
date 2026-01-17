@@ -1,12 +1,12 @@
 use httpmock::prelude::*;
-use pocketbase_sdk::admin::Admin;
+use pocketbase_sdk::client::Client;
 use serde_json::json;
 
 #[test]
 fn collections_list_success() {
     let mockserver_url = mockserver().base_url();
-    let admin_client = Admin::new(mockserver_url.as_str())
-        .auth_with_password("sreedev@icloud.com", "Sreedev123")
+    let admin_client = Client::new(mockserver_url.as_str())
+        .auth_with_password("_superusers", "sreedev@icloud.com", "Sreedev123")
         .unwrap();
 
     let collections_list = admin_client.collections().list().call();
@@ -16,8 +16,8 @@ fn collections_list_success() {
 #[test]
 fn colletion_view_succes() {
     let mockserver_url = mockserver().base_url();
-    let admin_client = Admin::new(mockserver_url.as_str())
-        .auth_with_password("sreedev@icloud.com", "Sreedev123")
+    let admin_client = Client::new(mockserver_url.as_str())
+        .auth_with_password("_superusers", "sreedev@icloud.com", "Sreedev123")
         .unwrap();
     let collection = admin_client.collections().view("posts").call();
     assert!(collection.is_ok())
@@ -26,10 +26,10 @@ fn colletion_view_succes() {
 fn mockserver() -> MockServer {
     let server = MockServer::start();
     server.mock(|when, then| {
-        when.method(GET)  
-        .path("/api/collections/posts")
+        when.method(GET)
+            .path("/api/collections/posts")
             .header("Authorization", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6InN5d2JoZWNuaDQ2cmhtMCIsInR5cGUiOiJhZG1pbiIsImV4cCI6MjIwODk4MTYwMH0.han3_sG65zLddpcX2ic78qgy7FKecuPfOpFa8Dvi5Bg");
-            then.status(200).header("content-type", "application/json")
+        then.status(200).header("content-type", "application/json")
             .json_body(json!({
                 "id": "d2972397d45614e",
                 "created": "2022-06-22 07:13:00.643Z",
@@ -163,19 +163,23 @@ fn mockserver() -> MockServer {
                 "identity": "sreedev@icloud.com",
                 "password": "Sreedev123"
             }))
-            .path("/api/admins/auth-with-password");
+            .path("/api/collections/_superusers/auth-with-password");
 
         then
             .status(200)
             .header("content-type", "application/json")
             .json_body(json!({
                     "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6InN5d2JoZWNuaDQ2cmhtMCIsInR5cGUiOiJhZG1pbiIsImV4cCI6MjIwODk4MTYwMH0.han3_sG65zLddpcX2ic78qgy7FKecuPfOpFa8Dvi5Bg",
-                    "admin": {
+                    "record": {
                     "id": "b6e4b08274f34e9",
+                    "collectionId": "d2972397d45614e",
+                    "collectionName": "_superusers",
                     "created": "2022-06-22 07:13:09.735Z",
                     "updated": "2022-06-22 07:13:09.735Z",
+                    "username": "test@example.com",
                     "email": "test@example.com",
-                    "avatar": 0
+                    "verified": false,
+                    "emailVisibility": true
                 }
             }));
     });

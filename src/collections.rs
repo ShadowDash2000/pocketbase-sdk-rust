@@ -1,4 +1,4 @@
-use crate::client::{Auth, Client};
+use crate::client::{Client};
 use crate::httpc::{Httpc, MAX_BODY_SIZE};
 use anyhow::Result;
 use chrono::{DateTime, Utc};
@@ -45,7 +45,7 @@ pub struct Collection {
 
 #[derive(Clone, Debug)]
 pub struct CollectionsManager<'a> {
-    pub client: &'a Client<Auth>,
+    pub client: &'a Client,
 }
 
 /*TODO: Add Auth Options & View Options for View & Auth Types*/
@@ -67,20 +67,20 @@ pub struct CollectionDetails<'a> {
 
 #[derive(Debug, Clone)]
 pub struct CollectionCreateRequestBuilder<'a> {
-    pub client: &'a Client<Auth>,
+    pub client: &'a Client,
     pub collection_name: &'a str,
     pub collection_details: Option<CollectionDetails<'a>>,
 }
 
 #[derive(Clone, Debug)]
 pub struct CollectionViewRequestBuilder<'a> {
-    pub client: &'a Client<Auth>,
+    pub client: &'a Client,
     pub name: &'a str,
 }
 
 #[derive(Clone, Debug)]
 pub struct CollectionListRequestBuilder<'a> {
-    pub client: &'a Client<Auth>,
+    pub client: &'a Client,
     pub filter: Option<String>,
     pub sort: Option<String>,
     pub per_page: i32,
@@ -103,7 +103,7 @@ impl<'a> CollectionListRequestBuilder<'a> {
         build_opts.push(("perPage", per_page_opts.as_str()));
         build_opts.push(("page", page_opts.as_str()));
 
-        match Httpc::get(self.client, &url, Some(build_opts)) {
+        match Httpc::get(self.client.auth_store(), &url, Some(build_opts)) {
             Ok(mut result) => {
                 let response = result
                     .body_mut()
@@ -175,7 +175,7 @@ impl<'a> CollectionsManager<'a> {
 impl<'a> CollectionViewRequestBuilder<'a> {
     pub fn call(&self) -> Result<Collection> {
         let url = format!("{}/api/collections/{}", self.client.base_url(), self.name);
-        match Httpc::get(self.client, &url, None) {
+        match Httpc::get(self.client.auth_store(), &url, None) {
             Ok(mut result) => {
                 let response = result
                     .body_mut()

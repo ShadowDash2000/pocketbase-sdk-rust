@@ -1,4 +1,4 @@
-use crate::client::{Auth, Client};
+use crate::client::{Client};
 use crate::httpc::{Httpc, MAX_BODY_SIZE};
 use anyhow::Result;
 use chrono::{DateTime, Utc};
@@ -6,12 +6,12 @@ use serde::Deserialize;
 use std::collections::HashMap;
 
 pub struct LogsManager<'a> {
-    pub client: &'a Client<Auth>,
+    pub client: &'a Client,
 }
 
 #[derive(Debug, Clone)]
 pub struct LogListRequestBuilder<'a> {
-    pub client: &'a Client<Auth>,
+    pub client: &'a Client,
     pub page: i32,
     pub per_page: i32,
     pub sort: Option<&'a str>,
@@ -20,13 +20,13 @@ pub struct LogListRequestBuilder<'a> {
 
 #[derive(Debug, Clone)]
 pub struct LogViewRequestBuilder<'a> {
-    pub client: &'a Client<Auth>,
+    pub client: &'a Client,
     pub id: &'a str,
 }
 
 #[derive(Debug, Clone)]
 pub struct LogStatisticsRequestBuilder<'a> {
-    pub client: &'a Client<Auth>,
+    pub client: &'a Client,
     pub filter: Option<&'a str>,
 }
 
@@ -75,7 +75,7 @@ impl<'a> LogStatisticsRequestBuilder<'a> {
             build_opts.push(("filter", filter_opts.to_owned()));
         }
 
-        match Httpc::get(self.client, &url, Some(build_opts)) {
+        match Httpc::get(self.client.auth_store(), &url, Some(build_opts)) {
             Ok(mut result) => {
                 let response = result
                     .body_mut()
@@ -92,7 +92,7 @@ impl<'a> LogStatisticsRequestBuilder<'a> {
 impl<'a> LogViewRequestBuilder<'a> {
     pub fn call(&self) -> Result<LogListItem> {
         let url = format!("{}/api/logs/requests/{}", self.client.base_url(), self.id);
-        match Httpc::get(self.client, &url, None) {
+        match Httpc::get(self.client.auth_store(), &url, None) {
             Ok(mut result) => {
                 let response = result
                     .body_mut()
@@ -150,7 +150,7 @@ impl<'a> LogListRequestBuilder<'a> {
         build_opts.push(("perPage", per_page_opts.as_str()));
         build_opts.push(("page", page_opts.as_str()));
 
-        match Httpc::get(self.client, &url, Some(build_opts)) {
+        match Httpc::get(self.client.auth_store(), &url, Some(build_opts)) {
             Ok(mut result) => {
                 let response = result
                     .body_mut()

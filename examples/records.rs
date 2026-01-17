@@ -34,7 +34,11 @@ fn main() -> Result<()> {
     dbg!(products);
 
     /* List Products with filter */
-    let filtered_products = authenticated_client.records("products").list().filter("count < 6000").call::<Product>()?;
+    let filtered_products = authenticated_client
+        .records("products")
+        .list()
+        .filter("count < 6000")
+        .call::<Product>()?;
     dbg!(filtered_products);
 
     /* View Product */

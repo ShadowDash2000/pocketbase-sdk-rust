@@ -1,9 +1,6 @@
 /// Non Admin Client
 pub mod client;
 
-/// Admin Client - Mirror of Client but with admin authentication token
-pub mod admin;
-
 /// Records Related Operations
 pub mod records;
 

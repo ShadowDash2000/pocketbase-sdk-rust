@@ -2,25 +2,75 @@ use crate::httpc::MAX_BODY_SIZE;
 use crate::{collections::CollectionsManager, httpc::Httpc};
 use crate::{logs::LogsManager, records::RecordsManager};
 use anyhow::{anyhow, Result};
+use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde_json::json;
 
-#[derive(Debug, Deserialize)]
-struct AuthSuccessResponse {
-    token: String,
+#[derive(Debug, Clone, Deserialize)]
+pub struct AuthSuccessResponse<T> {
+    pub record: AuthRecord<T>,
+    pub token: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct AuthBaseFields {
+    #[serde(rename = "collectionName")]
+    pub collection_name: String,
+    #[serde(rename = "collectionId")]
+    pub collection_id: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct AuthRecord<T> {
+    #[serde(flatten)]
+    pub base_fields: AuthBaseFields,
+    #[serde(flatten)]
+    pub fields: T,
 }
 
 #[derive(Debug, Clone)]
-pub struct NoAuth;
-
-#[derive(Debug, Clone)]
-pub struct Auth;
-
-#[derive(Debug, Clone)]
-pub struct Client<State = NoAuth> {
+pub struct AuthStore {
     base_url: String,
-    auth_token: Option<String>,
-    state: State,
+    record: AuthRecord<serde_json::Value>,
+    pub(crate) token: String,
+}
+
+impl AuthStore {
+    pub fn record<T: DeserializeOwned>(&self) -> Result<AuthRecord<T>> {
+        Ok(AuthRecord {
+            base_fields: self.record.base_fields.clone(),
+            fields: serde_json::from_value(self.record.fields.clone())?,
+        })
+    }
+
+    pub fn refresh(&mut self) -> Result<()> {
+        let url = format!(
+            "{}/api/collections/{}/auth-refresh",
+            self.base_url, self.record.base_fields.collection_name
+        );
+
+        match Httpc::post(Some(self), &url, "".to_string()) {
+            Ok(mut response) => {
+                let response = response
+                    .body_mut()
+                    .with_config()
+                    .limit(MAX_BODY_SIZE)
+                    .read_json::<AuthSuccessResponse<serde_json::Value>>()?;
+
+                self.record = response.record.clone();
+                self.token = response.token.clone();
+
+                Ok(())
+            }
+            Err(e) => Err(anyhow!("{}", e)),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Client {
+    base_url: String,
+    auth: Option<AuthStore>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -29,39 +79,35 @@ pub struct HealthCheckResponse {
     pub message: String,
 }
 
-impl<State> Client<State> {
+impl Client {
+    pub fn new(base_url: &str) -> Self {
+        Self {
+            base_url: base_url.to_string(),
+            auth: None,
+        }
+    }
+
+    pub fn new_with_auth(base_url: &str, auth: AuthStore) -> Self {
+        Self {
+            base_url: base_url.to_string(),
+            auth: Some(auth),
+        }
+    }
+
     pub fn base_url(&self) -> &str {
         &self.base_url
     }
 
-    pub fn auth_token(&self) -> Option<&str> {
-        self.auth_token.as_deref()
+    pub fn auth_store(&self) -> Option<&AuthStore> {
+        self.auth.as_ref()
     }
-}
 
-impl Client<Auth> {
-    pub fn new_auth(base_url: &str, auth_token: &str) -> Self {
-        Self {
-            base_url: base_url.to_string(),
-            auth_token: Some(auth_token.to_string()),
-            state: Auth,
-        }
+    pub fn auth_token(&self) -> Option<&str> {
+        self.auth.as_ref().map(|auth| auth.token.as_str())
     }
 
     pub fn collections(&self) -> CollectionsManager<'_> {
         CollectionsManager { client: self }
-    }
-
-    pub fn health_check(&self) -> Result<HealthCheckResponse> {
-        let url = format!("{}/api/health", self.base_url);
-        match Httpc::get(self, &url, None) {
-            Ok(mut response) => Ok(response
-                .body_mut()
-                .with_config()
-                .limit(MAX_BODY_SIZE)
-                .read_json::<HealthCheckResponse>()?),
-            Err(e) => Err(anyhow!("{}", e)),
-        }
     }
 
     pub fn logs(&self) -> LogsManager<'_> {
@@ -74,20 +120,10 @@ impl Client<Auth> {
             collection_name: record_name,
         }
     }
-}
-
-impl Client<NoAuth> {
-    pub fn new(base_url: &str) -> Self {
-        Self {
-            base_url: base_url.to_string(),
-            auth_token: None,
-            state: NoAuth,
-        }
-    }
 
     pub fn health_check(&self) -> Result<HealthCheckResponse> {
         let url = format!("{}/api/health", self.base_url);
-        match Httpc::get(self, &url, None) {
+        match Httpc::get(self.auth_store(), &url, None) {
             Ok(mut response) => Ok(response
                 .body_mut()
                 .with_config()
@@ -102,7 +138,7 @@ impl Client<NoAuth> {
         collection: &str,
         identifier: &str,
         secret: &str,
-    ) -> Result<Client<Auth>> {
+    ) -> Result<Self> {
         let url = format!(
             "{}/api/collections/{}/auth-with-password",
             self.base_url, collection
@@ -113,21 +149,22 @@ impl Client<NoAuth> {
             "password": secret
         });
 
-        match Httpc::post(self, &url, auth_payload.to_string()) {
+        match Httpc::post(self.auth_store(), &url, auth_payload.to_string()) {
             Ok(mut response) => {
-                let raw_response = response
+                let response = response
                     .body_mut()
                     .with_config()
                     .limit(MAX_BODY_SIZE)
-                    .read_json::<AuthSuccessResponse>();
-                match raw_response {
-                    Ok(AuthSuccessResponse { token }) => Ok(Client {
+                    .read_json::<AuthSuccessResponse<serde_json::Value>>()?;
+
+                Ok(Self {
+                    base_url: self.base_url.clone(),
+                    auth: Some(AuthStore {
                         base_url: self.base_url.clone(),
-                        state: Auth,
-                        auth_token: Some(token),
+                        record: response.record.clone(),
+                        token: response.token.clone(),
                     }),
-                    Err(e) => Err(anyhow!("{}", e)),
-                }
+                })
             }
             Err(e) => Err(anyhow!("{}", e)),
         }
