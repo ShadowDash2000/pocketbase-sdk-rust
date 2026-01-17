@@ -3,16 +3,16 @@ use crate::{collections::CollectionsManager, httpc::Httpc};
 use crate::{logs::LogsManager, records::RecordsManager};
 use anyhow::{anyhow, Result};
 use serde::de::DeserializeOwned;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct AuthSuccessResponse<T> {
+pub struct AuthSuccessResponse<T: Serialize> {
     pub record: AuthRecord<T>,
     pub token: String,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuthBaseFields {
     #[serde(rename = "collectionName")]
     pub collection_name: String,
@@ -20,15 +20,15 @@ pub struct AuthBaseFields {
     pub collection_id: String,
 }
 
-#[derive(Debug, Clone, Deserialize)]
-pub struct AuthRecord<T> {
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AuthRecord<T: Serialize> {
     #[serde(flatten)]
     pub base_fields: AuthBaseFields,
     #[serde(flatten)]
     pub fields: T,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct AuthStore {
     base_url: String,
     record: AuthRecord<serde_json::Value>,
@@ -36,7 +36,7 @@ pub struct AuthStore {
 }
 
 impl AuthStore {
-    pub fn record<T: DeserializeOwned>(&self) -> Result<AuthRecord<T>> {
+    pub fn record<T: Serialize + DeserializeOwned>(&self) -> Result<AuthRecord<T>> {
         Ok(AuthRecord {
             base_fields: self.record.base_fields.clone(),
             fields: serde_json::from_value(self.record.fields.clone())?,
@@ -90,7 +90,10 @@ impl Client {
     pub fn new_with_auth(base_url: &str, auth: AuthStore) -> Self {
         Self {
             base_url: base_url.to_string(),
-            auth: Some(auth),
+            auth: Some(AuthStore {
+                base_url: base_url.to_string(),
+                ..auth
+            }),
         }
     }
 
