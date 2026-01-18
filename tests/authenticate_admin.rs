@@ -2,25 +2,25 @@ use httpmock::prelude::*;
 use pocketbase_sdk::client::Client;
 use serde_json::json;
 
-#[test]
-pub fn authenticate_admin_success() {
+#[tokio::test]
+pub async fn authenticate_admin_success() {
     let mockserver = mock_admin_login();
     let client = Client::new(mockserver.base_url().as_str()).auth_with_password(
         "_superusers",
         "sreedev@icloud.com",
         "Sreedev123",
-    );
+    ).await;
     assert!(client.is_ok());
 }
 
-#[test]
-pub fn authenticate_admin_failure() {
+#[tokio::test]
+pub async  fn authenticate_admin_failure() {
     let mockserver = mock_admin_login();
     let client = Client::new(mockserver.base_url().as_str()).auth_with_password(
         "_superusers",
         "wrongidentity@wrongidentity.com",
         "wrongpassword",
-    );
+    ).await;
     assert!(client.is_err());
 }
 

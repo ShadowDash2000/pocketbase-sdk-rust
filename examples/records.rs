@@ -16,21 +16,21 @@ pub struct NewProduct {
     pub count: i32,
 }
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     env_logger::init();
 
     /* Authenticate Client */
-    let authenticated_client = Client::new("http://localhost:8090").auth_with_password(
-        "users",
-        "sreedev@icloud.com",
-        "Sreedev123",
-    )?;
+    let authenticated_client = Client::new("http://localhost:8090")
+        .auth_with_password("users", "sreedev@icloud.com", "Sreedev123")
+        .await?;
 
     /* List Products */
     let products = authenticated_client
         .records("products")
         .list()
-        .call::<Product>()?;
+        .call::<Product>()
+        .await?;
     dbg!(products);
 
     /* List Products with filter */
@@ -38,14 +38,16 @@ fn main() -> Result<()> {
         .records("products")
         .list()
         .filter("count < 6000")
-        .call::<Product>()?;
+        .call::<Product>()
+        .await?;
     dbg!(filtered_products);
 
     /* View Product */
     let product = authenticated_client
         .records("products")
         .view("jme4ixxqie2f9ho")
-        .call::<Product>()?;
+        .call::<Product>()
+        .await?;
     dbg!(product);
 
     /* Create Product */
@@ -56,7 +58,8 @@ fn main() -> Result<()> {
     let create_response = authenticated_client
         .records("products")
         .create(new_product)
-        .call()?;
+        .call()
+        .await?;
     dbg!(&create_response);
 
     /* Update Product */
@@ -67,7 +70,8 @@ fn main() -> Result<()> {
     let update_response = authenticated_client
         .records("products")
         .update(create_response.id.as_str(), updated_product)
-        .call::<Product>()?;
+        .call::<Product>()
+        .await?;
 
     dbg!(update_response);
 
@@ -75,7 +79,8 @@ fn main() -> Result<()> {
     authenticated_client
         .records("products")
         .destroy(create_response.id.as_str())
-        .call()?;
+        .call()
+        .await?;
 
     Ok(())
 }

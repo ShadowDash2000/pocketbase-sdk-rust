@@ -1,5 +1,5 @@
-use crate::client::{Client};
-use crate::httpc::{Httpc, MAX_BODY_SIZE};
+use crate::auth::AuthenticatedRequest;
+use crate::httpc::HttpClient;
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -45,7 +45,8 @@ pub struct Collection {
 
 #[derive(Clone, Debug)]
 pub struct CollectionsManager<'a> {
-    pub client: &'a Client,
+    pub(crate) client: &'a HttpClient,
+    pub(crate) token: &'a str,
 }
 
 /*TODO: Add Auth Options & View Options for View & Auth Types*/
@@ -67,20 +68,23 @@ pub struct CollectionDetails<'a> {
 
 #[derive(Debug, Clone)]
 pub struct CollectionCreateRequestBuilder<'a> {
-    pub client: &'a Client,
+    pub(crate) client: &'a HttpClient,
+    pub(crate) token: &'a str,
     pub collection_name: &'a str,
     pub collection_details: Option<CollectionDetails<'a>>,
 }
 
 #[derive(Clone, Debug)]
 pub struct CollectionViewRequestBuilder<'a> {
-    pub client: &'a Client,
+    pub(crate) client: &'a HttpClient,
+    pub(crate) token: &'a str,
     pub name: &'a str,
 }
 
 #[derive(Clone, Debug)]
 pub struct CollectionListRequestBuilder<'a> {
-    pub client: &'a Client,
+    pub(crate) client: &'a HttpClient,
+    pub(crate) token: &'a str,
     pub filter: Option<String>,
     pub sort: Option<String>,
     pub per_page: i32,
@@ -88,8 +92,7 @@ pub struct CollectionListRequestBuilder<'a> {
 }
 
 impl<'a> CollectionListRequestBuilder<'a> {
-    pub fn call(&self) -> Result<CollectionList> {
-        let url = format!("{}/api/collections", self.client.base_url());
+    pub async fn call(&self) -> Result<CollectionList> {
         let mut build_opts: Vec<(&str, &str)> = Vec::new();
 
         if let Some(filter_opts) = &self.filter {
@@ -103,15 +106,14 @@ impl<'a> CollectionListRequestBuilder<'a> {
         build_opts.push(("perPage", per_page_opts.as_str()));
         build_opts.push(("page", page_opts.as_str()));
 
-        match Httpc::get(self.client.auth_store(), &url, Some(build_opts)) {
-            Ok(mut result) => {
-                let response = result
-                    .body_mut()
-                    .with_config()
-                    .limit(MAX_BODY_SIZE)
-                    .read_json::<CollectionList>()?;
-                Ok(response)
-            }
+        match self
+            .client
+            .get("/api/collections", Some(build_opts))
+            .attach_auth_info(self.token)
+            .send()
+            .await
+        {
+            Ok(result) => Ok(result.json::<CollectionList>().await?),
             Err(e) => Err(e.into()),
         }
     }
@@ -149,6 +151,7 @@ impl<'a> CollectionsManager<'a> {
     pub fn view(&self, name: &'a str) -> CollectionViewRequestBuilder<'_> {
         CollectionViewRequestBuilder {
             client: self.client,
+            token: self.token,
             name,
         }
     }
@@ -156,6 +159,7 @@ impl<'a> CollectionsManager<'a> {
     pub fn create(&self, name: &'a str) -> CollectionCreateRequestBuilder<'_> {
         CollectionCreateRequestBuilder {
             client: self.client,
+            token: self.token,
             collection_details: None,
             collection_name: name,
         }
@@ -164,6 +168,7 @@ impl<'a> CollectionsManager<'a> {
     pub fn list(&self) -> CollectionListRequestBuilder<'_> {
         CollectionListRequestBuilder {
             client: self.client,
+            token: self.token,
             filter: None,
             sort: None,
             per_page: 100,
@@ -173,17 +178,16 @@ impl<'a> CollectionsManager<'a> {
 }
 
 impl<'a> CollectionViewRequestBuilder<'a> {
-    pub fn call(&self) -> Result<Collection> {
-        let url = format!("{}/api/collections/{}", self.client.base_url(), self.name);
-        match Httpc::get(self.client.auth_store(), &url, None) {
-            Ok(mut result) => {
-                let response = result
-                    .body_mut()
-                    .with_config()
-                    .limit(MAX_BODY_SIZE)
-                    .read_json::<Collection>()?;
-                Ok(response)
-            }
+    pub async fn call(&self) -> Result<Collection> {
+        let url = format!("/api/collections/{}", self.name);
+        match self
+            .client
+            .get(&url, None)
+            .attach_auth_info(self.token)
+            .send()
+            .await
+        {
+            Ok(result) => Ok(result.json::<Collection>().await?),
             Err(e) => Err(e.into()),
         }
     }

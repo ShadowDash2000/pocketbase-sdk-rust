@@ -10,26 +10,29 @@ pub struct Record {
     pub title: String,
 }
 
-#[test]
-fn list_records_success() {
+#[tokio::test]
+async fn list_records_success() {
     let mockserver = mock_records_server();
     let client = Client::new(mockserver.base_url().as_str())
         .auth_with_password("users", "sreedev@icloud.com", "Sreedev123")
+        .await
         .unwrap();
 
     let records = client
         .records("posts")
         .list()
         .per_page(1000)
-        .call::<Record>();
+        .call::<Record>()
+        .await;
     assert!(records.is_ok());
 }
 
-#[test]
-fn full_list_records_success() {
+#[tokio::test]
+async fn full_list_records_success() {
     let mockserver = mock_records_server();
     let client = Client::new(mockserver.base_url().as_str())
         .auth_with_password("users", "sreedev@icloud.com", "Sreedev123")
+        .await
         .unwrap();
 
     let records = client
@@ -37,6 +40,7 @@ fn full_list_records_success() {
         .list()
         .per_page(1000)
         .full_list::<Record>()
+        .await
         .unwrap();
     assert_eq!(records.len(), 3);
     assert_eq!(records[0].id, "1");

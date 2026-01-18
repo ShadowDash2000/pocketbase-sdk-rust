@@ -1,86 +1,13 @@
-use crate::httpc::MAX_BODY_SIZE;
-use crate::records::RecordId;
-use crate::{collections::CollectionsManager, httpc::Httpc};
+use crate::auth::{Auth, AuthState, AuthStore, AuthenticatedRequest, Authorized, Unauthorized};
+use crate::{collections::CollectionsManager, httpc::HttpClient};
 use crate::{logs::LogsManager, records::RecordsManager};
 use anyhow::{anyhow, Result};
-use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
-use serde_json::json;
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct AuthSuccessResponse {
-    #[serde(rename = "record")]
-    pub record_value: serde_json::Value,
-    pub token: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AuthBaseFields {
-    pub id: RecordId,
-    #[serde(rename = "collectionName")]
-    pub collection_name: String,
-    #[serde(rename = "collectionId")]
-    pub collection_id: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AuthRecord {
-    #[serde(flatten)]
-    pub base_fields: AuthBaseFields,
-    #[serde(flatten)]
-    pub fields: serde_json::Value,
-}
+use serde::Deserialize;
 
 #[derive(Debug, Clone)]
-pub struct Auth {
-    base_url: String,
-    auth_store: AuthStore,
-    record_value: serde_json::Value,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AuthStore {
-    record: AuthRecord,
-    pub(crate) token: String,
-}
-
-impl Auth {
-    pub fn record<T: Serialize + DeserializeOwned>(&self) -> Result<(AuthBaseFields, T)> {
-        Ok((
-            self.auth_store.record.base_fields.clone(),
-            serde_json::from_value(self.record_value.clone())?,
-        ))
-    }
-
-    pub fn refresh(&mut self) -> Result<()> {
-        let url = format!(
-            "{}/api/collections/{}/auth-refresh",
-            self.base_url, self.auth_store.record.base_fields.collection_name
-        );
-
-        match Httpc::post(Some(&self.auth_store), &url, "".to_string()) {
-            Ok(mut response) => {
-                let response = response
-                    .body_mut()
-                    .with_config()
-                    .limit(MAX_BODY_SIZE)
-                    .read_json::<AuthSuccessResponse>()?;
-
-                self.auth_store.record = serde_json::from_value(response.record_value.clone())?;
-                self.record_value = response.record_value.clone();
-                self.auth_store.token = response.token.clone();
-
-                Ok(())
-            }
-            Err(e) => Err(anyhow!("{}", e)),
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct Client {
-    base_url: String,
-    auth: Option<Auth>,
+pub struct Client<State: AuthState> {
+    http_client: HttpClient,
+    auth: Auth<State>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -89,108 +16,102 @@ pub struct HealthCheckResponse {
     pub message: String,
 }
 
-impl Client {
-    pub fn new(base_url: &str) -> Self {
-        Self {
-            base_url: base_url.to_string(),
-            auth: None,
-        }
-    }
-
-    pub fn new_with_auth(base_url: &str, auth: AuthStore) -> Result<Self> {
-        Ok(Self {
-            base_url: base_url.to_string(),
-            auth: Some(Auth {
-                base_url: base_url.to_string(),
-                record_value: serde_json::to_value(&auth.record)?,
-                auth_store: auth,
-            }),
-        })
+impl<State: AuthState> Client<State> {
+    pub fn auth(&self) -> &Auth<State> {
+        &self.auth
     }
 
     pub fn base_url(&self) -> &str {
-        &self.base_url
+        self.http_client.base_url()
     }
 
-    pub fn auth(&self) -> Option<&Auth> {
-        self.auth.as_ref()
-    }
-
-    pub fn auth_store(&self) -> Option<&AuthStore> {
-        self.auth.as_ref().map(|auth| &auth.auth_store)
-    }
-
-    pub fn auth_token(&self) -> Option<&str> {
-        self.auth
-            .as_ref()
-            .map(|auth| auth.auth_store.token.as_str())
-    }
-
-    pub fn collections(&self) -> CollectionsManager<'_> {
-        CollectionsManager { client: self }
-    }
-
-    pub fn logs(&self) -> LogsManager<'_> {
-        LogsManager { client: self }
-    }
-
-    pub fn records(&self, record_name: &'static str) -> RecordsManager<'_> {
+    pub fn records(&self, collection_name: &'static str) -> RecordsManager<'_> {
         RecordsManager {
-            client: self,
-            collection_name: record_name,
+            client: &self.http_client,
+            token: self.auth.token(),
+            collection_name,
         }
     }
 
-    pub fn health_check(&self) -> Result<HealthCheckResponse> {
-        let url = format!("{}/api/health", self.base_url);
-        match Httpc::get(self.auth_store(), &url, None) {
-            Ok(mut response) => Ok(response
-                .body_mut()
-                .with_config()
-                .limit(MAX_BODY_SIZE)
-                .read_json::<HealthCheckResponse>()?),
-            Err(e) => Err(anyhow!("{}", e)),
-        }
-    }
-
-    pub fn auth_with_password(
+    pub async fn auth_with_password(
         &self,
         collection: &str,
         identifier: &str,
         secret: &str,
-    ) -> Result<Self> {
-        let url = format!(
-            "{}/api/collections/{}/auth-with-password",
-            self.base_url, collection
-        );
+    ) -> Result<Client<Authorized>> {
+        let auth = self
+            .auth
+            .auth_with_password(collection, identifier, secret)
+            .await?;
 
-        let auth_payload = json!({
-            "identity": identifier,
-            "password": secret
-        });
+        Ok(Client {
+            auth,
+            http_client: self.http_client.to_owned(),
+        })
+    }
+}
 
-        match Httpc::post(self.auth_store(), &url, auth_payload.to_string()) {
-            Ok(mut response) => {
-                let response = response
-                    .body_mut()
-                    .with_config()
-                    .limit(MAX_BODY_SIZE)
-                    .read_json::<AuthSuccessResponse>()?;
+impl Client<Unauthorized> {
+    pub fn new(base_url: &str) -> Client<Unauthorized> {
+        let http_client = HttpClient::new(base_url);
 
-                Ok(Self {
-                    base_url: self.base_url.clone(),
-                    auth: Some(Auth {
-                        base_url: self.base_url.clone(),
-                        auth_store: AuthStore {
-                            record: serde_json::from_value::<AuthRecord>(
-                                response.clone().record_value,
-                            )?,
-                            token: response.token.clone(),
-                        },
-                        record_value: response.record_value.clone(),
-                    }),
-                })
-            }
+        Client {
+            auth: Auth::<Unauthorized>::new(http_client.clone()),
+            http_client,
+        }
+    }
+
+    pub async fn health_check(&self) -> Result<HealthCheckResponse> {
+        match self.http_client.get("/api/health", None).send().await {
+            Ok(response) => Ok(response.json::<HealthCheckResponse>().await?),
+            Err(e) => Err(anyhow!("{}", e)),
+        }
+    }
+}
+
+impl Client<Authorized> {
+    pub fn new_with_auth(base_url: &str, auth_store: AuthStore) -> Result<Client<Authorized>> {
+        let http_client = HttpClient::new(base_url);
+
+        Ok(Client {
+            auth: Auth::<Authorized>::new(auth_store, http_client.clone())?,
+            http_client,
+        })
+    }
+
+    pub fn auth_store(&self) -> &AuthStore {
+        self.auth.auth_store()
+    }
+
+    pub fn auth_token(&self) -> &str {
+        self.auth
+            .token()
+            .expect("Authorized client must have a token")
+    }
+
+    pub fn collections(&self) -> CollectionsManager<'_> {
+        CollectionsManager {
+            client: &self.http_client,
+            token: self.auth_token(),
+        }
+    }
+
+    pub fn logs(&self) -> LogsManager<'_> {
+        LogsManager {
+            client: &self.http_client,
+            token: self.auth_token(),
+        }
+    }
+
+    pub async fn health_check(&self) -> Result<HealthCheckResponse> {
+        match self
+            .http_client
+            .get("/api/health", None)
+            .attach_auth_info(self.auth_token())
+            .send()
+            .await
+        {
+            Ok(response) => Ok(response.json::<HealthCheckResponse>().await?),
             Err(e) => Err(anyhow!("{}", e)),
         }
     }
