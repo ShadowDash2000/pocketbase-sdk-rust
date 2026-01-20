@@ -14,7 +14,7 @@ pub mod logs;
 pub mod settings;
 
 /// Realtime Server [Not Available]
-pub mod rts;
+pub mod realtime;
 
 pub mod auth;
 

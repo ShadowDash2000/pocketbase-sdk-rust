@@ -1,5 +1,6 @@
 use crate::auth::AuthenticatedRequest;
 use crate::httpc::HttpClient;
+use crate::realtime::{EventResponse, RealtimeClient};
 use anyhow::{anyhow, Result};
 use serde::Serialize;
 use serde::{de::DeserializeOwned, Deserialize};
@@ -18,7 +19,8 @@ pub struct RecordBaseFields {
 
 #[derive(Debug, Clone)]
 pub struct RecordsManager<'a> {
-    pub(crate) client: &'a HttpClient,
+    pub(crate) http_client: &'a HttpClient,
+    pub(crate) realtime_client: &'a RealtimeClient,
     pub(crate) token: Option<&'a str>,
     pub collection_name: &'a str,
 }
@@ -195,14 +197,14 @@ impl<'a> RecordViewRequestBuilder<'a> {
 }
 
 #[derive(Clone, Debug)]
-pub struct RecordDestroyRequestBuilder<'a> {
+pub struct RecordDeleteRequestBuilder<'a> {
     pub(crate) client: &'a HttpClient,
     pub(crate) token: Option<&'a str>,
     pub collection_name: &'a str,
     pub identifier: &'a str,
 }
 
-impl<'a> RecordDestroyRequestBuilder<'a> {
+impl<'a> RecordDeleteRequestBuilder<'a> {
     pub async fn call(&self) -> Result<()> {
         let url = format!(
             "/api/collections/{}/records/{}",
@@ -320,7 +322,7 @@ impl<'a, K: Serialize + Clone> RecordUpdateRequestBuilder<'a, K> {
 impl<'a> RecordsManager<'a> {
     pub fn view(&self, identifier: &'a str) -> RecordViewRequestBuilder<'a> {
         RecordViewRequestBuilder {
-            client: self.client,
+            client: self.http_client,
             token: self.token,
             collection_name: self.collection_name,
             identifier,
@@ -329,9 +331,9 @@ impl<'a> RecordsManager<'a> {
         }
     }
 
-    pub fn destroy(&self, identifier: &'a str) -> RecordDestroyRequestBuilder<'a> {
-        RecordDestroyRequestBuilder {
-            client: self.client,
+    pub fn delete(&self, identifier: &'a str) -> RecordDeleteRequestBuilder<'a> {
+        RecordDeleteRequestBuilder {
+            client: self.http_client,
             token: self.token,
             collection_name: self.collection_name,
             identifier,
@@ -344,7 +346,7 @@ impl<'a> RecordsManager<'a> {
         data: K,
     ) -> RecordUpdateRequestBuilder<'a, K> {
         RecordUpdateRequestBuilder {
-            client: self.client,
+            client: self.http_client,
             token: self.token,
             collection_name: self.collection_name,
             id: identifier,
@@ -354,7 +356,7 @@ impl<'a> RecordsManager<'a> {
 
     pub fn create<T: Serialize + Clone>(&self, record: T) -> RecordCreateRequestBuilder<'a, T> {
         RecordCreateRequestBuilder {
-            client: self.client,
+            client: self.http_client,
             token: self.token,
             collection_name: self.collection_name,
             record,
@@ -363,7 +365,7 @@ impl<'a> RecordsManager<'a> {
 
     pub fn list(&self) -> RecordsListRequestBuilder<'a> {
         RecordsListRequestBuilder {
-            client: self.client,
+            client: self.http_client,
             token: self.token,
             collection_name: self.collection_name,
             filter: None,
@@ -377,5 +379,17 @@ impl<'a> RecordsManager<'a> {
 
     pub async fn full_list<T: Default + DeserializeOwned>(&self) -> Result<Vec<T>> {
         self.list().full_list::<T>().await
+    }
+
+    pub async fn subscribe<F>(&self, topic: &str, callback: F) -> Result<()>
+    where
+        F: Fn(EventResponse) + Send + Sync + 'static,
+    {
+        self.realtime_client
+            .subscribe(
+                format!("{}/{}", self.collection_name, topic).as_str(),
+                callback,
+            )
+            .await
     }
 }

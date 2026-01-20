@@ -1,4 +1,5 @@
 use crate::auth::{Auth, AuthState, AuthStore, AuthenticatedRequest, Authorized, Unauthorized};
+use crate::realtime::RealtimeClient;
 use crate::{collections::CollectionsManager, httpc::HttpClient};
 use crate::{logs::LogsManager, records::RecordsManager};
 use anyhow::{anyhow, Result};
@@ -7,6 +8,7 @@ use serde::Deserialize;
 #[derive(Debug, Clone)]
 pub struct Client<State: AuthState> {
     http_client: HttpClient,
+    realtime_client: RealtimeClient,
     auth: Auth<State>,
 }
 
@@ -25,9 +27,10 @@ impl<State: AuthState> Client<State> {
         self.http_client.base_url()
     }
 
-    pub fn records(&self, collection_name: &'static str) -> RecordsManager<'_> {
+    pub fn collection(&self, collection_name: &'static str) -> RecordsManager<'_> {
         RecordsManager {
-            client: &self.http_client,
+            http_client: &self.http_client,
+            realtime_client: &self.realtime_client,
             token: self.auth.token(),
             collection_name,
         }
@@ -46,17 +49,18 @@ impl<State: AuthState> Client<State> {
 
         Ok(Client {
             auth,
-            http_client: self.http_client.to_owned(),
+            http_client: self.http_client.clone(),
+            realtime_client: self.realtime_client.clone(),
         })
     }
 }
-
 impl Client<Unauthorized> {
     pub fn new(base_url: &str) -> Client<Unauthorized> {
         let http_client = HttpClient::new(base_url);
 
         Client {
             auth: Auth::<Unauthorized>::new(http_client.clone()),
+            realtime_client: RealtimeClient::new(http_client.clone()),
             http_client,
         }
     }
@@ -75,6 +79,7 @@ impl Client<Authorized> {
 
         Ok(Client {
             auth: Auth::<Authorized>::new(auth_store, http_client.clone())?,
+            realtime_client: RealtimeClient::new(http_client.clone()),
             http_client,
         })
     }

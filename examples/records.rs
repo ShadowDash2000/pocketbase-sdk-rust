@@ -18,8 +18,6 @@ pub struct NewProduct {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    env_logger::init();
-
     /* Authenticate Client */
     let authenticated_client = Client::new("http://localhost:8090")
         .auth_with_password("users", "sreedev@icloud.com", "Sreedev123")
@@ -27,7 +25,7 @@ async fn main() -> Result<()> {
 
     /* List Products */
     let products = authenticated_client
-        .records("products")
+        .collection("products")
         .list()
         .call::<Product>()
         .await?;
@@ -35,7 +33,7 @@ async fn main() -> Result<()> {
 
     /* List Products with filter */
     let filtered_products = authenticated_client
-        .records("products")
+        .collection("products")
         .list()
         .filter("count < 6000")
         .call::<Product>()
@@ -44,7 +42,7 @@ async fn main() -> Result<()> {
 
     /* View Product */
     let product = authenticated_client
-        .records("products")
+        .collection("products")
         .view("jme4ixxqie2f9ho")
         .call::<Product>()
         .await?;
@@ -56,7 +54,7 @@ async fn main() -> Result<()> {
         count: 69420,
     };
     let create_response = authenticated_client
-        .records("products")
+        .collection("products")
         .create(new_product)
         .call()
         .await?;
@@ -68,7 +66,7 @@ async fn main() -> Result<()> {
         count: 69420,
     };
     let update_response = authenticated_client
-        .records("products")
+        .collection("products")
         .update(create_response.id.as_str(), updated_product)
         .call::<Product>()
         .await?;
@@ -77,8 +75,8 @@ async fn main() -> Result<()> {
 
     /* Delete Product */
     authenticated_client
-        .records("products")
-        .destroy(create_response.id.as_str())
+        .collection("products")
+        .delete(create_response.id.as_str())
         .call()
         .await?;
 

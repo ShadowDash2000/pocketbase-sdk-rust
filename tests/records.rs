@@ -19,7 +19,7 @@ async fn list_records_success() {
         .unwrap();
 
     let records = client
-        .records("posts")
+        .collection("posts")
         .list()
         .per_page(1000)
         .call::<Record>()
@@ -36,7 +36,7 @@ async fn full_list_records_success() {
         .unwrap();
 
     let records = client
-        .records("posts")
+        .collection("posts")
         .list()
         .per_page(1000)
         .full_list::<Record>()

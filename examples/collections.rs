@@ -3,8 +3,6 @@ use pocketbase_sdk::client::Client;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    env_logger::init();
-
     // admin authentication
     let client = Client::new("http://localhost:8090")
         .auth_with_password("_superusers", "sreedev@icloud.com", "Sreedev123")
